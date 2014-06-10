@@ -12,6 +12,10 @@
 
 # expected fields in the configuration file for this app
 configuration:
+    ocio_template:
+        type: template
+        description: Reference to the template which locates the OCIO config file on disk
+        allows_empty: False
 
               
 

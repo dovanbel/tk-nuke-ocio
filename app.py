@@ -15,6 +15,7 @@ OCIO handling for Nuke
 
 import os
 import nuke
+import nozonscripts
 import tank
 from tank import TankError
 
@@ -25,6 +26,19 @@ class NukeOCIONode(tank.platform.Application):
         Called as the application is being initialized
         """
 
+        # make sure that the context has an entity associated - otherwise it wont work!
+        if self.context.entity is None:
+            raise tank.TankError("Cannot load the Set Frame Range application! "
+                                 "Your current context does not have an entity (e.g. "
+                                 "a current Shot, current Asset etc). This app requires "
+                                 "an entity as part of the context in order to work.")
+
+        # remove any callbacks from sharedNuke menu.py
+        nuke.removeOnScriptLoad(nozonscripts.setOCIO)
+        nuke.removeOnScriptSave(nozonscripts.setOCIO)
+
+        nuke.removeOnCreate(nozonscripts.setOCIOContext, nodeClass='OCIODisplay')
+
         # import module and create handler
         tk_nuke_ocio = self.import_module("tk_nuke_ocio")
         self.__ocio_node_handler = tk_nuke_ocio.TankOCIOHandler(self)
@@ -34,6 +48,8 @@ class NukeOCIONode(tank.platform.Application):
 
         # add callbacks:
         self.__ocio_node_handler.add_callbacks()
+
+        self.log_debug("Loading tk-nuke-ocio app")
 
     def destroy_app(self):
         """

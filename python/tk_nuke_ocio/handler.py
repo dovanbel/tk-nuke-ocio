@@ -36,8 +36,13 @@ class TankOCIOHandler(object):
         Construction
         """
         self._app = app
-        #self._script_template = self._app.get_template("template_script_work")
-        
+
+        self.camera_colorspace = self.getCameraColorspaceFromShotgun()
+        self.event = self._app.context.entity['name']
+
+
+        self.setOCIODisplayContext()
+
 
         # exemple pour acceder aux preferences de l'app tel que defini dans le shot_step.yml
         # la commande a retenir : self._app.get_setting()
@@ -47,55 +52,72 @@ class TankOCIOHandler(object):
         # for profile in self._app.get_setting("write_nodes", []):
         #     name = profile["name"]
            
-           
-        
-        #self.__path_preview_cache = {}
-            
-    ################################################################################################
-    # Properties
-            
-    #@property
     
-            
-    ################################################################################################
-    # Public methods
-            
-    
+
 
     def add_callbacks(self):
         """
         Add callbacks to watch for certain events:
         """
 
-        nuke.addOnCreate(self.__test, nodeClass="OCIOColorSpace") 
-
+        nuke.addOnUserCreate(self.setOCIOColorspaceContext, nodeClass="OCIOColorSpace") 
+        nuke.addOnCreate(self.setOCIODisplayContext, nodeClass="OCIODisplay")
         
     def remove_callbacks(self):
         """
         Removed previously added callbacks
         """
-        nuke.removeOnCreate(self.__test, nodeClass="OCIOColorSpace") 
+        nuke.removeOnUserCreate(self.setOCIOColorspaceContext, nodeClass="OCIOColorSpace") 
+        nuke.removeOnCreate(self.setOCIODisplayContext, nodeClass="OCIODisplay")
 
+       
 
-    ################################################################################################
-    # Public methods called from gizmo - although these are public, they should 
-    # be considered as private and not used directly!
+    def setOCIOColorspaceContext(self):
 
-
-
-
-    ################################################################################################
-    # Private methods
-
-    
-
-    def __test(self):
-        
         ocioNode = nuke.thisNode()
 
-        testTab = nuke.Tab_Knob('Test', 'Test')
-        ocioNode.addKnob(testTab)
+        ocioNode['key1'].setValue('EVENT')
+        ocioNode['value1'].setValue(self.event)
+        ocioNode['key2'].setValue('CAMERA')
+        ocioNode['value2'].setValue(self.camera_colorspace)
+        
+
+    def setOCIODisplayContext(self):
+
+           
+        listVP = nuke.ViewerProcess.registeredNames()
+        viewers = nuke.allNodes('Viewer')
+
+        for v in viewers:
+            for l in listVP:
+                if nuke.ViewerProcess.node(l, v['name'].value()):
+                    if nuke.ViewerProcess.node(l)['key1'].value() != 'EVENT':
+                        nuke.ViewerProcess.node(l)['key1'].setValue('EVENT')
+                    if nuke.ViewerProcess.node(l)['value1'].value() != self.event:
+                        nuke.ViewerProcess.node(l)['value1'].setValue(self.event)
+                    if nuke.ViewerProcess.node(l)['key2'].value() != 'CAMERA':
+                        nuke.ViewerProcess.node(l)['key2'].setValue('CAMERA')
+                    if nuke.ViewerProcess.node(l)['value2'].value() != self.camera_colorspace:
+                        nuke.ViewerProcess.node(l)['value2'].setValue(self.camera_colorspace)
 
 
-    
 
+    def setOCIOConfig(self):
+        ocio_template = self._app.get_template("ocio_template")
+        ocio_path = self._app.sgtk.paths_from_template(ocio_template, {})[0]
+
+
+        return ocio_path
+
+
+    def getCameraColorspaceFromShotgun(self):
+
+        entity = self._app.context.entity
+
+        sg_entity_type = entity["type"]  # should be Shot
+        sg_filters = [["id", "is", entity["id"]]]  #  code of the current shot
+        sg_fields = ['sg_camera_colorspace']
+
+        data = self._app.shotgun.find_one(sg_entity_type, filters=sg_filters, fields=sg_fields)
+
+        return data['sg_camera_colorspace']
