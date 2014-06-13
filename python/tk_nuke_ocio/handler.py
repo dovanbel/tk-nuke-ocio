@@ -84,9 +84,18 @@ class TankOCIOHandler(object):
 
     def setOCIODisplayContext(self):
 
+
+
+
            
         listVP = nuke.ViewerProcess.registeredNames()
         viewers = nuke.allNodes('Viewer')
+        ### ideally I'd like to use :
+        #camera_colorspace = self.getCameraColorspaceFromShotgun() 
+        # this would update any new viewer with the last value from the camera colorspace field in shotgun
+        # but this creates a max recursion bug in the callback
+        camera_colorspace = self.camera_colorspace
+
 
         for v in viewers:
             for l in listVP:
@@ -97,8 +106,8 @@ class TankOCIOHandler(object):
                         nuke.ViewerProcess.node(l)['value1'].setValue(self.event)
                     if nuke.ViewerProcess.node(l)['key2'].value() != 'CAMERA':
                         nuke.ViewerProcess.node(l)['key2'].setValue('CAMERA')
-                    if nuke.ViewerProcess.node(l)['value2'].value() != self.camera_colorspace:
-                        nuke.ViewerProcess.node(l)['value2'].setValue(self.camera_colorspace)
+                    if nuke.ViewerProcess.node(l)['value2'].value() != camera_colorspace:
+                        nuke.ViewerProcess.node(l)['value2'].setValue(camera_colorspace)
 
 
 
