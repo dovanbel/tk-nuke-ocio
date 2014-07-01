@@ -19,6 +19,7 @@ import nozonscripts
 import tank
 from tank import TankError
 
+
 class NukeOCIONode(tank.platform.Application):
 
     def init_app(self):
@@ -26,28 +27,26 @@ class NukeOCIONode(tank.platform.Application):
         Called as the application is being initialized
         """
 
-        # make sure that the context has an entity associated - otherwise it wont work!
-        if self.context.entity is None:
-            raise tank.TankError("Cannot load the Set Frame Range application! "
-                                 "Your current context does not have an entity (e.g. "
-                                 "a current Shot, current Asset etc). This app requires "
-                                 "an entity as part of the context in order to work.")
-
-        # remove any callbacks from sharedNuke menu.py
+        # remove callbacks from sharedNuke menu.py
         nuke.removeOnScriptLoad(nozonscripts.setOCIO)
         nuke.removeOnScriptSave(nozonscripts.setOCIO)
-
         nuke.removeOnCreate(nozonscripts.setOCIOContext, nodeClass='OCIODisplay')
 
-        # import module and create handler
-        tk_nuke_ocio = self.import_module("tk_nuke_ocio")
-        self.__ocio_node_handler = tk_nuke_ocio.TankOCIOHandler(self)
+        ocio_template = self.get_template("ocio_template")
+        ocio_path = self.sgtk.paths_from_template(ocio_template, {})[0]
+        ocio_path = ocio_path.replace(os.path.sep, "/")
+        
+        nuke.knobDefault("Root.defaultViewerLUT", "OCIO LUTs")
+        nuke.knobDefault("Root.OCIO_config", "custom")
+        nuke.knobDefault("Root.customOCIOConfigPath", ocio_path)
+        
 
-        # patch handler onto nuke module for access in OCIO knobs
-        nuke._shotgun_ocio_node_handler = self.__ocio_node_handler
-
-        # add callbacks:
-        self.__ocio_node_handler.add_callbacks()
+        # add callbacks if we have an entity:
+        if self.context.entity is not None:
+            self.camera_colorspace = self._getCameraColorspaceFromShotgun()
+            self.event = self.context.entity['name']
+            self._add_callbacks()
+            self._setOCIODisplayContext()
 
         self.log_debug("Loading tk-nuke-ocio app")
 
@@ -58,13 +57,65 @@ class NukeOCIONode(tank.platform.Application):
         self.log_debug("Destroying tk-nuke-ocio app")
         
         # remove any callbacks that were registered by the handler:
-        self.__ocio_node_handler.remove_callbacks()
+        self._remove_callbacks()
         
-        # clean up the nuke module:
-        if hasattr(nuke, "_shotgun_write_node_handler"):
-            del nuke._shotgun_ocio_node_handler
-        
-    
+
+    def _add_callbacks(self):
+        """
+        Add callbacks to watch for certain events:
+        """
+
+        nuke.addOnUserCreate(self._setOCIOColorspaceContext, nodeClass="OCIOColorSpace") 
+        nuke.addOnCreate(self._setOCIODisplayContext, nodeClass="OCIODisplay")
+
+    def _remove_callbacks(self):
+        """
+        Removed previously added callbacks
+        """
+        nuke.removeOnUserCreate(self._setOCIOColorspaceContext, nodeClass="OCIOColorSpace") 
+        nuke.removeOnCreate(self._setOCIODisplayContext, nodeClass="OCIODisplay")
 
 
+    def _setOCIOColorspaceContext(self):
 
+        ocioNode = nuke.thisNode()
+
+        ocioNode['key1'].setValue('EVENT')
+        ocioNode['value1'].setValue(self.event)
+        ocioNode['key2'].setValue('CAMERA')
+        ocioNode['value2'].setValue(self.camera_colorspace)
+
+    def _setOCIODisplayContext(self):
+           
+        listVP = nuke.ViewerProcess.registeredNames()
+        viewers = nuke.allNodes('Viewer')
+        ### ideally I'd like to use :
+        #camera_colorspace = self.getCameraColorspaceFromShotgun() 
+        # this would update any new viewer with the last value from the camera colorspace field in shotgun
+        # but this creates a max recursion bug in the callback
+        camera_colorspace = self.camera_colorspace
+
+
+        for v in viewers:
+            for l in listVP:
+                if nuke.ViewerProcess.node(l, v['name'].value()):
+                    if nuke.ViewerProcess.node(l)['key1'].value() != 'EVENT':
+                        nuke.ViewerProcess.node(l)['key1'].setValue('EVENT')
+                    if nuke.ViewerProcess.node(l)['value1'].value() != self.event:
+                        nuke.ViewerProcess.node(l)['value1'].setValue(self.event)
+                    if nuke.ViewerProcess.node(l)['key2'].value() != 'CAMERA':
+                        nuke.ViewerProcess.node(l)['key2'].setValue('CAMERA')
+                    if nuke.ViewerProcess.node(l)['value2'].value() != camera_colorspace:
+                        nuke.ViewerProcess.node(l)['value2'].setValue(camera_colorspace)
+
+    def _getCameraColorspaceFromShotgun(self):
+
+        entity = self.context.entity
+
+        sg_entity_type = entity["type"]  # should be Shot
+        sg_filters = [["id", "is", entity["id"]]]  #  code of the current shot
+        sg_fields = ['sg_camera_colorspace']
+
+        data = self.shotgun.find_one(sg_entity_type, filters=sg_filters, fields=sg_fields)
+
+        return data['sg_camera_colorspace']
