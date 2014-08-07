@@ -32,15 +32,6 @@ class NukeOCIONode(tank.platform.Application):
         nuke.removeOnScriptSave(nozonscripts.setOCIO)
         nuke.removeOnCreate(nozonscripts.setOCIOContext, nodeClass='OCIODisplay')
 
-        ocio_template = self.get_template("ocio_template")
-        ocio_path = self.sgtk.paths_from_template(ocio_template, {})[0]
-        ocio_path = ocio_path.replace(os.path.sep, "/")
-        
-        nuke.knobDefault("Root.defaultViewerLUT", "OCIO LUTs")
-        nuke.knobDefault("Root.OCIO_config", "custom")
-        nuke.knobDefault("Root.customOCIOConfigPath", ocio_path)
-        
-
         # add callbacks if we have an entity:
         if self.context.entity is not None:
             self.camera_colorspace = self._getCameraColorspaceFromShotgun()
@@ -67,6 +58,7 @@ class NukeOCIONode(tank.platform.Application):
 
         nuke.addOnUserCreate(self._setOCIOColorspaceContext, nodeClass="OCIOColorSpace") 
         nuke.addOnCreate(self._setOCIODisplayContext, nodeClass="OCIODisplay")
+        nuke.addOnScriptLoad(self._setOCIOSettingsOnRootNode)
 
     def _remove_callbacks(self):
         """
@@ -74,7 +66,7 @@ class NukeOCIONode(tank.platform.Application):
         """
         nuke.removeOnUserCreate(self._setOCIOColorspaceContext, nodeClass="OCIOColorSpace") 
         nuke.removeOnCreate(self._setOCIODisplayContext, nodeClass="OCIODisplay")
-
+        nuke.removeOnScriptLoad(self._setOCIOSettingsOnRootNode)
 
     def _setOCIOColorspaceContext(self):
 
@@ -119,3 +111,13 @@ class NukeOCIONode(tank.platform.Application):
         data = self.shotgun.find_one(sg_entity_type, filters=sg_filters, fields=sg_fields)
 
         return data['sg_camera_colorspace']
+
+    def _setOCIOSettingsOnRootNode(self):
+
+        ocio_template = self.get_template("ocio_template")
+        ocio_path = self.sgtk.paths_from_template(ocio_template, {})[0]
+        ocio_path = ocio_path.replace(os.path.sep, "/")
+
+        nuke.root().knob("defaultViewerLUT").setValue("OCIO LUTs") 
+        nuke.root().knob("OCIO_config").setValue("custom") 
+        nuke.root().knob("customOCIOConfigPath").setValue(ocio_path) 
