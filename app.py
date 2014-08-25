@@ -33,11 +33,14 @@ class NukeOCIONode(tank.platform.Application):
         nuke.removeOnCreate(nozonscripts.setOCIOContext, nodeClass='OCIODisplay')
 
         # add callbacks if we have an entity:
+
         if self.context.entity is not None:
             self.camera_colorspace = self._getCameraColorspaceFromShotgun()
             self.event = self.context.entity['name']
-            self._add_callbacks()
+            self._setOCIOSettingsOnRootNode()
             self._setOCIODisplayContext()
+            self._add_callbacks()
+
 
         self.log_debug("Loading tk-nuke-ocio app")
 
@@ -58,7 +61,7 @@ class NukeOCIONode(tank.platform.Application):
 
         nuke.addOnUserCreate(self._setOCIOColorspaceContext, nodeClass="OCIOColorSpace") 
         nuke.addOnCreate(self._setOCIODisplayContext, nodeClass="OCIODisplay")
-        nuke.addOnScriptLoad(self._setOCIOSettingsOnRootNode)
+        #nuke.addOnScriptLoad(self._setOCIOSettingsOnRootNode)
 
     def _remove_callbacks(self):
         """
@@ -66,7 +69,7 @@ class NukeOCIONode(tank.platform.Application):
         """
         nuke.removeOnUserCreate(self._setOCIOColorspaceContext, nodeClass="OCIOColorSpace") 
         nuke.removeOnCreate(self._setOCIODisplayContext, nodeClass="OCIODisplay")
-        nuke.removeOnScriptLoad(self._setOCIOSettingsOnRootNode)
+        #nuke.removeOnScriptLoad(self._setOCIOSettingsOnRootNode)
 
     def _setOCIOColorspaceContext(self):
 
