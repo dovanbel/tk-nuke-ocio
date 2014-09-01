@@ -61,7 +61,7 @@ class NukeOCIONode(tank.platform.Application):
 
         nuke.addOnUserCreate(self._setOCIOColorspaceContext, nodeClass="OCIOColorSpace") 
         nuke.addOnCreate(self._setOCIODisplayContext, nodeClass="OCIODisplay")
-        # nuke.addOnCreate(self._setOCIOSettingsOnRootNode, nodeClass='Root' )
+        nuke.addOnCreate(self._setOCIOSettingsOnRootNode, nodeClass='Root' )
 
     def _remove_callbacks(self):
         """
@@ -69,7 +69,7 @@ class NukeOCIONode(tank.platform.Application):
         """
         nuke.removeOnUserCreate(self._setOCIOColorspaceContext, nodeClass="OCIOColorSpace") 
         nuke.removeOnCreate(self._setOCIODisplayContext, nodeClass="OCIODisplay")
-        # nuke.removeOnCreate(self._setOCIOSettingsOnRootNode, nodeClass='Root' )
+        nuke.removeOnCreate(self._setOCIOSettingsOnRootNode, nodeClass='Root' )
 
     def _setOCIOColorspaceContext(self):
 
