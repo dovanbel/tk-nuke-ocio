@@ -32,17 +32,24 @@ class NukeOCIONode(tank.platform.Application):
         nuke.removeOnScriptSave(nozonscripts.setOCIO)
         nuke.removeOnCreate(nozonscripts.setOCIOContext, nodeClass='OCIODisplay')
 
-        # add callbacks if we have an entity:
+        # first deal with nuke root settings: we don't need a context for this
+
+        self._setOCIOSettingsOnRootNode() # if I don't do this and do a File/New in Nuke, the new instance of nuke does not set the OCIO settings on the root node.
+        self._add_root_callbacks()
+        self.log_debug("Loading tk-nuke-ocio app.")
 
         if self.context.entity is not None:
-            self.camera_colorspace = self._getCameraColorspaceFromShotgun()
             self.event = self.context.entity['name']
+            self.camera_colorspace = self._getCameraColorspaceFromShotgun()
+
             self._setOCIOSettingsOnRootNode()
             self._setOCIODisplayContext()
             self._add_callbacks()
 
+            self.log_debug("The camera colorspace for '%s' has been fetched from Shotgun and is '%s'" % (self.event, self.camera_colorspace))
 
-        self.log_debug("Loading tk-nuke-ocio app")
+        
+
 
     def destroy_app(self):
         """
@@ -51,8 +58,22 @@ class NukeOCIONode(tank.platform.Application):
         self.log_debug("Destroying tk-nuke-ocio app")
         
         # remove any callbacks that were registered by the handler:
-        self._remove_callbacks()
-        
+        self._remove_root_callbacks()
+        self._remove_callbacks()        
+
+    def _add_root_callbacks(self):
+        """
+        Add callbacks to watch for certain events:
+        """
+
+        nuke.addOnCreate(self._setOCIOSettingsOnRootNode, nodeClass='Root' )
+
+    def _remove_root_callbacks(self):
+        """
+        Removed previously added callbacks
+        """
+        nuke.removeOnCreate(self._setOCIOSettingsOnRootNode, nodeClass='Root' )
+
 
     def _add_callbacks(self):
         """
@@ -61,7 +82,8 @@ class NukeOCIONode(tank.platform.Application):
 
         nuke.addOnUserCreate(self._setOCIOColorspaceContext, nodeClass="OCIOColorSpace") 
         nuke.addOnCreate(self._setOCIODisplayContext, nodeClass="OCIODisplay")
-        nuke.addOnCreate(self._setOCIOSettingsOnRootNode, nodeClass='Root' )
+
+        nuke.addOnCreate(self._warningNoCameraColorspace, nodeClass='Root' )
 
     def _remove_callbacks(self):
         """
@@ -69,7 +91,8 @@ class NukeOCIONode(tank.platform.Application):
         """
         nuke.removeOnUserCreate(self._setOCIOColorspaceContext, nodeClass="OCIOColorSpace") 
         nuke.removeOnCreate(self._setOCIODisplayContext, nodeClass="OCIODisplay")
-        nuke.removeOnCreate(self._setOCIOSettingsOnRootNode, nodeClass='Root' )
+
+        nuke.removeOnCreate(self._warningNoCameraColorspace, nodeClass='Root' )
 
     def _setOCIOColorspaceContext(self):
 
@@ -114,6 +137,18 @@ class NukeOCIONode(tank.platform.Application):
         data = self.shotgun.find_one(sg_entity_type, filters=sg_filters, fields=sg_fields)
 
         return data['sg_camera_colorspace']
+
+    
+    def _warningNoCameraColorspace(self):
+
+        camera_colorspace =  self.camera_colorspace
+        #camera_colorspace = self._getCameraColorspaceFromShotgun()
+
+        if camera_colorspace == '' or camera_colorspace == None:
+            nuke.message('Warning : The camera colorspace of shot %s could not be determined.\nPlease check the Shot infos on our shotgun website and fill the camera colorspace field (sRGB for pure CGI stuff)' % self.event)
+        
+        self.log_debug("Checking the camera colorspace in shotgun")
+
 
     def _setOCIOSettingsOnRootNode(self):
 
