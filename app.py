@@ -27,28 +27,32 @@ class NukeOCIONode(tank.platform.Application):
         Called as the application is being initialized
         """
 
-        # remove callbacks from sharedNuke menu.py
-        nuke.removeOnScriptLoad(nozonscripts.setOCIO)
-        nuke.removeOnScriptSave(nozonscripts.setOCIO)
-        nuke.removeOnCreate(nozonscripts.setOCIOContext, nodeClass='OCIODisplay')
+        # this app should not do anything if nuke is run without gui.
 
-        # first deal with nuke root settings: we don't need a context for this
+        if nuke.env['gui']:
+            # remove callbacks from sharedNuke menu.py
+            nuke.removeOnScriptLoad(nozonscripts.setOCIO)
+            nuke.removeOnScriptSave(nozonscripts.setOCIO)
+            nuke.removeOnCreate(nozonscripts.setOCIOContext, nodeClass='OCIODisplay')
 
-        self._setOCIOSettingsOnRootNode() # if I don't do this and do a File/New in Nuke, the new instance of nuke does not set the OCIO settings on the root node.
-        self._add_root_callbacks()
-        self.log_debug("Loading tk-nuke-ocio app.")
+            # first deal with nuke root settings: we don't need a context for this
 
-        if self.context.entity is not None:
-            self.event = self.context.entity['name']
-            self.camera_colorspace = self._getCameraColorspaceFromShotgun()
+            self._setOCIOSettingsOnRootNode() # if I don't do this and do a File/New in Nuke, the new instance of nuke does not set the OCIO settings on the root node.
+            self._add_root_callbacks()
+            self.log_debug("Loading tk-nuke-ocio app.")
 
-            self._setOCIOSettingsOnRootNode()
-            self._setOCIODisplayContext()
-            self._add_callbacks()
+            if self.context.entity is not None:
+                self.event = self.context.entity['name']
+                self.camera_colorspace = self._getCameraColorspaceFromShotgun()
 
-            self.log_debug("The camera colorspace for '%s' has been fetched from Shotgun and is '%s'" % (self.event, self.camera_colorspace))
+                self._setOCIOSettingsOnRootNode()
+                self._setOCIODisplayContext()
+                self._add_callbacks()
 
-        
+                self.log_debug("The camera colorspace for '%s' has been fetched from Shotgun and is '%s'" % (self.event, self.camera_colorspace))
+
+        else:
+            pass
 
 
     def destroy_app(self):
@@ -145,7 +149,8 @@ class NukeOCIONode(tank.platform.Application):
         #camera_colorspace = self._getCameraColorspaceFromShotgun()
 
         if camera_colorspace == '' or camera_colorspace == None:
-            nuke.message('Warning : The camera colorspace of shot %s could not be determined.\nPlease check the Shot infos on our shotgun website and fill the camera colorspace field (sRGB for pure CGI stuff)' % self.event)
+            nuke.message('Warning : The camera colorspace of shot %s could not be determined.\n\
+                Please check the Shot infos on our shotgun website and fill the camera colorspace field (sRGB for pure CGI stuff)' % self.event)
         
         self.log_debug("Checking the camera colorspace in shotgun")
 
@@ -156,6 +161,28 @@ class NukeOCIONode(tank.platform.Application):
         ocio_path = self.sgtk.paths_from_template(ocio_template, {})[0]
         ocio_path = ocio_path.replace(os.path.sep, "/")
 
-        nuke.root().knob("defaultViewerLUT").setValue("OCIO LUTs") 
-        nuke.root().knob("OCIO_config").setValue("custom") 
-        nuke.root().knob("customOCIOConfigPath").setValue(ocio_path) 
+        '''
+        First case : the viewer process LUTs is set to 'Nuke Root LUTs'.
+        In this case we assume the user has not intervened, Nuke is using it's default values
+        So we change it to use the project ocio config without asking the user
+        ''' 
+        if nuke.root().knob("defaultViewerLUT").value() == 'Nuke Root LUTs':
+
+            nuke.root().knob("defaultViewerLUT").setValue("OCIO LUTs") 
+            nuke.root().knob("OCIO_config").setValue("custom") 
+            nuke.root().knob("customOCIOConfigPath").setValue(ocio_path) 
+
+        '''
+        Second case : the viewer process LUTs is configured to use OCIO Luts
+        '''
+        if nuke.root().knob("defaultViewerLUT").value() == 'OCIO LUTs':
+            # if the ocio config is not set to custom or if the ocio config file path is not correct we ask the user if he allows us to correct it
+            if nuke.root().knob("OCIO_config").value() != "custom" or nuke.root().knob("customOCIOConfigPath").value() != ocio_path:
+                anwser = nuke.ask('Warning. Your OCIO settings do not match the correct settings for this project<p> \
+                    Nuke is currently using the %s OCIO config located in:<br><i>%s</i><p>\
+                    It is supposed to use the custom OCIO config for this project located in:<br><i>%s</i><p>\
+                    Do you want me to correct the OCIO settings ?<br>Please be aware that changing the OCIO config is going to reset all ocio nodes.' % (nuke.root().knob("OCIO_config").value(), nuke.root().knob("customOCIOConfigPath").value(), ocio_path))
+                if anwser:
+                    nuke.root().knob("defaultViewerLUT").setValue("OCIO LUTs") 
+                    nuke.root().knob("OCIO_config").setValue("custom") 
+                    nuke.root().knob("customOCIOConfigPath").setValue(ocio_path) 
