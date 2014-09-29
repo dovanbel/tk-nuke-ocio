@@ -177,7 +177,7 @@ class NukeOCIONode(tank.platform.Application):
         '''
         if nuke.root().knob("defaultViewerLUT").value() == 'OCIO LUTs':
             # if the ocio config is not set to custom or if the ocio config file path is not correct we ask the user if he allows us to correct it
-            if nuke.root().knob("OCIO_config").value() != "custom" or nuke.root().knob("customOCIOConfigPath").value() != ocio_path:
+            if nuke.root().knob("OCIO_config").value() != "custom" or nuke.filenameFilter(nuke.root().knob("customOCIOConfigPath").value()) != ocio_path:
                 anwser = nuke.ask('Warning. Your OCIO settings do not match the correct settings for this project<p> \
                     Nuke is currently using the %s OCIO config located in:<br><i>%s</i><p>\
                     It is supposed to use the custom OCIO config for this project located in:<br><i>%s</i><p>\
