@@ -99,13 +99,61 @@ class NukeOCIONode(tank.platform.Application):
         nuke.removeOnCreate(self._warningNoCameraColorspace, nodeClass='Root' )
 
     def _setOCIOColorspaceContext(self):
+        '''
+        Setting up the knobs of the OCIOColorspace node
+        If the node is created as a child of a read node use the read node filepath to try to populate the event number,
+        the camera colorspace and set the in colorspace to the colorspace defined in the string of the filepath
+        If the node is created with no close connection to a read node we assume the node should be related to the current
+        context, so we use the event number and the camera colorspace from Shotgun
+        '''
 
         ocioNode = nuke.thisNode()
 
+        # First we setup the node to the event number and camera colorspace from the current context
+        
         ocioNode['key1'].setValue('EVENT')
         ocioNode['value1'].setValue(self.event)
         ocioNode['key2'].setValue('CAMERA')
         ocioNode['value2'].setValue(self.camera_colorspace)
+
+        # Now let's try to detect a read node in the upstream nodes
+
+        if not nuke.selectedNodes(): # no nodes selected, stop here
+            return
+        selNode = nuke.selectedNode()
+        upstreamNodes = [] # we will store an arbitrary number of upstream nodes in this list
+        upstreamNodes.append(selNode)
+
+        for i in range(10):
+            selNode = selNode.dependencies() # take the list of upstream dependent nodes, usually one but can be more if we have a node with multiple inputs
+            if selNode: selNode = selNode[0] #we take only the first dependent upstream node, so we stay on the B side
+            else: break # if there's nothing we have reached the end of the tree
+            upstreamNodes.append(selNode)
+
+        readNode = None
+        for n in upstreamNodes:
+            if n.Class() == 'Read':
+                readNode = n
+                break
+        else : return # stop here if we have found no read node
+        
+
+        filename = os.path.basename(readNode.knob('file').getValue())
+        # find event by assuming it's the first part in front of the filename, just before the first underscore 
+        event = filename.split('_')[0]
+        ocioNode['value1'].setValue(event)
+        # find colorspace in filename string:
+        colorspaceList = ['linear', 'Flat', 'sRGB', 'AlexaV3LogC', 'RedLogFilm', 'RedGamma3', 'PhantomLog1', 'PhantomLog2']
+        for cs in colorspaceList:
+            if cs in filename:
+                colorspace = cs
+                break
+
+        if colorspace:
+            ocioNode.knob('in_colorspace').setValue(colorspace)
+            ocioNode.knob('value2').setValue(colorspace)
+            ocioNode.knob('out_colorspace').setValue('Flat')
+
 
     def _setOCIODisplayContext(self):
            
