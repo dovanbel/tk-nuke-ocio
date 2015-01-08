@@ -148,7 +148,7 @@ class NukeOCIONode(tank.platform.Application):
             if cs in filename:
                 colorspace = cs
                 break
-
+        else: colorspace = None
         if colorspace:
             ocioNode.knob('in_colorspace').setValue(colorspace)
             ocioNode.knob('value2').setValue(colorspace)
