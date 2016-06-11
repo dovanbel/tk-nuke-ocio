@@ -143,7 +143,7 @@ class NukeOCIONode(tank.platform.Application):
         event = filename.split('_')[0]
         ocioNode['value1'].setValue(event)
         # find colorspace in filename string:
-        colorspaceList = ['linear', 'Flat', 'sRGB', 'AlexaV3LogC', 'RedLogFilm', 'RedGamma3', 'PhantomLog1', 'PhantomLog2']
+        colorspaceList = self.get_setting('colorspaces')
         for cs in colorspaceList:
             if cs in filename:
                 colorspace = cs

@@ -16,7 +16,12 @@ configuration:
         type: template
         description: Reference to the template which locates the OCIO config file on disk
         allows_empty: False
-
+    colorspaces:
+        type: list
+        values: {type: str}
+        description : List of colorspaces
+        allows_empty : False
+        default: ['linear', 'Flat', 'sRGB', 'AlexaV3LogC', 'RedLogFilm', 'RedGamma3', 'RedGamma4', 'PhantomLog1', 'PhantomLog2', 'S-Log2', 'S-Log3']
               
 
 
