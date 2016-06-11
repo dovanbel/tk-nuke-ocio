@@ -21,7 +21,7 @@ configuration:
         values: {type: str}
         description : List of colorspaces
         allows_empty : False
-        default: ['linear', 'Flat', 'sRGB', 'AlexaV3LogC', 'RedLogFilm', 'RedGamma3', 'RedGamma4', 'PhantomLog1', 'PhantomLog2', 'S-Log2', 'S-Log3']
+        default_value: ['linear', 'Flat', 'sRGB', 'AlexaV3LogC', 'RedLogFilm', 'RedGamma3', 'RedGamma4', 'PhantomLog1', 'PhantomLog2', 'S-Log2', 'S-Log3']
               
 
 
